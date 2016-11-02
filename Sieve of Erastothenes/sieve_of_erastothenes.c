@@ -1,5 +1,5 @@
 /******************************************************************************
-* FILE: sieve_erastothenes.c
+* FILE: sieve_of_erastothenes.c
 * DESCRIPTION: 
 *	SCC0143 - Programação Concorrente
 *	Trabalho Prático: Crivo de Erastotenes utilizando OpenMP
@@ -12,12 +12,12 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <math.h>
-//#include <omp.h>
+#include <omp.h>
 
 // Protótipos das funções utilizadas pelo programa
-void init_sieved_numbers_array(bool*, int);
+void init_prime_numbers_array(bool*, int);
 void print_algorithm_result(bool* , int);
-void strike_sieved_numbers_array_multiples(bool* ,int ,int ,int);
+void strike_prime_numbers_array_multiples(bool* ,int ,int ,int);
 void find_next_prime(bool* , int* , int);
 
 /*
@@ -27,7 +27,7 @@ int main(int argc, char* argv[]) {
 
 	// Variáveis utilizadas pelo algoritmo
 	int highestNatural = 0;				// Número natural que será lido como entrada do algoritmo
-	bool* primeNumbersArray = NULL;	// Lista que marca quais números menores ou iguais a 'highestNatural' são primos
+	bool* primeNumbersArray = NULL;		// Lista que marca quais números menores ou iguais a 'highestNatural' são primos
 	int latestPrime = -1;				// Último número primo verificado pelo algoritmo
 	int numThreads = 0;					// Quantidade de threads que serão usadas
 
@@ -40,21 +40,29 @@ int main(int argc, char* argv[]) {
 	// Aqui o usuario pode escolher quantas threads quer utilizar para resolver o problema
 	printf("Digite o numero de threads que deseja utilizar: ");
 	scanf("%d", &numThreads);
-	//omp_set_num_threads(numThreads);
+	omp_set_num_threads(numThreads);
 
-	printf("Digite o maior numero do inteiro nao negativo para ser usado pelo algoritmo: ");
+	printf("Digite o maior numero inteiro nao negativo para ser usado pelo algoritmo.\n");
+	printf("O Algoritmo vai procurar todos os numeros primos menores ou igual esse numero: ");
 	scanf("%d", &highestNatural);
 
 	// Alocacao do espaco de memoria para o array que diz quais sao os numeros primos
 	primeNumbersArray = (bool*) calloc (highestNatural+1, sizeof(bool));
-	init_sieved_numbers_array(primeNumbersArray, highestNatural);
+	init_prime_numbers_array(primeNumbersArray, highestNatural);
 
 	// Execução do algoritmo do Crivo de Erastotenes	
 	while(latestPrime <= sqrt(highestNatural)) {
-		//#pragma omp parallel shared(primeNumbersArray, latestPrime, highestNatural) {
+		/* 
+			Paralelização do Algortimo seguindo a descrição do Livro: 
+			Cada Thread tanto encontra o proximo primo quanto elimina os multiplos do
+			'latestPrime' elevado ao quadrado 
+		*/
+		#pragma omp parallel num_threads(numThreads) shared(primeNumbersArray, latestPrime, highestNatural)
+		{
 			find_next_prime(primeNumbersArray, &latestPrime, highestNatural);
-			strike_sieved_numbers_array_multiples(primeNumbersArray, pow(latestPrime,2), latestPrime, highestNatural);
-		//}
+			strike_prime_numbers_array_multiples(primeNumbersArray, pow(latestPrime,2), latestPrime, highestNatural);
+		}
+		
 	}
 
 	// Impressao do resultado do algoritmo
@@ -73,7 +81,7 @@ int main(int argc, char* argv[]) {
 */
 
 /*
-	Função: Init Sieved Numbers Array (Inicializa Lista de numeros primos)
+	Função: Init Prime Numbers Array (Inicializa Lista de numeros primos)
 	Faz: Inicializa todos os elementos da lista de números primos como 'true'
 	Parâmetros:	
 		1 - primeNumbersArray: Array que armazena em cada posição [i] 'true' se [i] é primo, ou 'false' caso contrário 
@@ -81,7 +89,7 @@ int main(int argc, char* argv[]) {
 	Saída: 
 		void
 */
-void init_sieved_numbers_array(bool* primeNumbersArray, int arraySize) {
+void init_prime_numbers_array(bool* primeNumbersArray, int arraySize) {
 	for(int i = 2; i <= arraySize; i++) {
 		primeNumbersArray[i] = true;
 	}
@@ -115,8 +123,8 @@ void print_algorithm_result(bool* primeNumbersArray, int highestNatural) {
 }
 
 /*
-	Função: Strike Sieved Numbers Array 
-	Faz: Marca os elementos na lista de números primos como 'false'
+	Função: Strike Prime Numbers Array Multiples
+	Faz: Marca os elementos na lista de números primos que nao sao primos como 'false'
 	Parâmetros:	
 		1 - primeNumbersArray: Array que armazena em cada posição [i] 'true' se [i] é primo, ou 'false' caso contrário 
 		2 - startPosition: Posição da lista a partir da qual será iniciada a verificação
@@ -125,7 +133,7 @@ void print_algorithm_result(bool* primeNumbersArray, int highestNatural) {
 	Saída: 
 		void
 */
-void strike_sieved_numbers_array_multiples(bool* primeNumbersArray, int startPosition, int latestPrime, int highestNatural) {
+void strike_prime_numbers_array_multiples(bool* primeNumbersArray, int startPosition, int latestPrime, int highestNatural) {
 	for(int i = startPosition; i <= highestNatural; i++){
 		if((i % latestPrime) == 0 && primeNumbersArray[i] == true) {
 			primeNumbersArray[i] = false;
